@@ -200,3 +200,5 @@ Q5_mean_table <- result |>
     group_by(activity, subject) |>
     summarise(across(all_of(col_list), ~mean(., na.rm = TRUE))) 
 
+write.table(Q5_mean_table, "dataset.csv")
+
