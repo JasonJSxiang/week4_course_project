@@ -11,8 +11,6 @@ if(!file.exists("raw")) {
 }
 
 # download data to the raw directory
-
-# only run if the file has already been downloaded
 if(!file.exists("raw/zip_file.zip")) {
     url <- "https://d396qusza40orc.cloudfront.net/getdata%2Fprojectfiles%2FUCI%20HAR%20Dataset.zip"
     
@@ -48,13 +46,15 @@ read_files_function <- function(data) {
     if(data == "test") {
         # extract and merge files in the first directory
         test1 <- lapply(file_names_first, function(x) {
-            read_lines(paste0("raw/UCI HAR Dataset/test/", x))
+            read_table(paste0("raw/UCI HAR Dataset/test/", x),
+                       col_names = FALSE)
         })
         
         # extract and merge files in the second directory
         test2 <- lapply(file_names_second, function(x) {
-            read_lines(paste0("raw/UCI HAR Dataset/test/Inertial Signals/",
-                              x))
+            read_table(paste0("raw/UCI HAR Dataset/test/Inertial Signals/",
+                              x),
+                       col_names = FALSE)
         })
         
         test <- c(test1, test2)
@@ -66,12 +66,14 @@ read_files_function <- function(data) {
     } else {
         # extract and merge for first directory
         train1 <- lapply(file_names_first, function(x) {
-            read_lines(paste0("raw/UCI HAR Dataset/train/", x))
+            read_table(paste0("raw/UCI HAR Dataset/train/", x),
+                       col_names = FALSE)
         })
         
         train2 <- lapply(file_names_second, function(x) {
-            read_lines(paste0("raw/UCI HAR Dataset/train/Inertial Signals/", 
-                              x))
+            read_table(paste0("raw/UCI HAR Dataset/train/Inertial Signals/", 
+                              x),
+                       col_names = FALSE)
         })
         
         train <- c(train1, train2)
@@ -94,45 +96,72 @@ if(!exists("train", where = .GlobalEnv)) {
     read_files_function("train")
 }
 
+# load features and info dataset
+activity_labels <- read_lines("raw/UCI HAR Dataset/activity_labels.txt") |> 
+    str_remove("[1-6]") |> 
+    as_tibble() |> 
+    mutate(value = tolower(value))
+
+features <- read_lines("raw/UCI HAR Dataset/features.txt") |> 
+    as_tibble()
+
+features_info  <- read_lines("raw/UCI HAR Dataset/features_info.txt",
+                             skip = 32,
+                             n_max = 17) |> 
+    as_tibble()
+
 
 
 # Data tidy ---------------------------------------------------------------
 
-# convert object to df
-test = as.data.frame(test)
-train = as.data.frame(train)
+# extract the required df
+test_df <- test[[2]]
+train_df <- train[[2]]
 
-# create a function to clean col names
-clean_names <- function(x) {
+# format the features info 
+features_info <- features_info |> 
+    separate(value, into = c("abbr", "full"), sep = ": ")
+
+# clean the features list
+features$value <- sapply(features$value, function(x) {
+    text <- x |> 
+        str_replace("^([0-9]{1,3})",
+                    "") |> 
+        str_trim() |> 
+        str_replace("^t",
+                    "time ") |> 
+        str_replace("^f",
+                    "frequency ") |> 
+        str_replace("\\,[0-9]$",
+                    "") |> 
+        str_replace("BodyAcc",
+                    " body acceleration ") |> 
+        str_replace_all("-",
+                        " ") |> 
+        str_replace_all("GravityAcc",
+                        "gravity acceleration ")
     
-    if(x == "test") {
-        col_names <- names(test)
-        data <- test
+    for(i in seq_along(features_info$full)) {
+        search_text <- features_info$abbr[i]
+        replace_text <- features_info$full[i]
         
-        cleaned_names <- col_names |> 
-            str_remove("_test") |> 
-            str_remove("\\.txt")
-        
-        names(data) <- cleaned_names
-        test <<- data
+        text <- str_replace(text,
+                            fixed(search_text),
+                            replace_text)
     }
     
-    if(x == "train") {
-        col_names <- names(train)
-        data <- train
-        
-        cleaned_names <- col_names |> 
-            str_remove("_train") |> 
-            str_remove("\\.txt")
-        
-        names(data) <- cleaned_names
-        train <<- data
-    }
+    text <- tolower(text)
+})
     
-}
+# extract the formatted col names    
+col_names <- features$value
 
-# clean test's and train's col names
-clean_names("test")
-clean_names("train")
+# merge test_df and train_df into w (working file)
+w <- bind_rows(
+    list(test = test_df, train = train_df),
+    .id = "source")
 
-
+# assign the formatted feature names to col names
+names(w)[2:ncol(w)] <- col_names
+    
+    
