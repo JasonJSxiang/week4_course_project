@@ -114,7 +114,7 @@ features_info  <- read_lines("raw/UCI HAR Dataset/features_info.txt",
 
 # Data tidy ---------------------------------------------------------------
 
-# extract the required df
+## main df ####
 test_df <- test[[2]]
 train_df <- train[[2]]
 
@@ -152,7 +152,7 @@ features$value <- sapply(features$value, function(x) {
     
     text <- tolower(text)
 })
-    
+
 # extract the formatted col names    
 col_names <- features$value
 
@@ -163,5 +163,49 @@ w <- bind_rows(
 
 # assign the formatted feature names to col names
 names(w)[2:ncol(w)] <- col_names
-    
-    
+
+# extract only cols of mean and standard deviation
+sd_cols <- str_which(names(w), "standard deviation")
+mean_cols <- str_which(names(w), "mean")
+reserved_cols_indices <- c(1, sd_cols, mean_cols)
+
+w <- w[, reserved_cols_indices]
+
+## subject df ####
+test_subject_df <- test[[1]] |> 
+    rename("subject" = "X1")
+train_subject_df <- train[[1]] |> 
+    rename("subject" = "X1")
+
+subject_df <- bind_rows(list(test = test_subject_df,
+                             train = train_subject_df))
+
+## activities dfs ####
+test_activiies_df <- test[[3]] |> 
+    rename("activity" = "X1")
+train_activities_df <- train[[3]] |> 
+    rename("activity" = "X1")
+
+activities_df <- bind_rows(list(test = test_activiies_df,
+                                train = train_activities_df))
+
+# assign values to each number in the activities df
+activities_df <- activities_df |> 
+    mutate(activity = factor(activities_df$activity,
+                             levels = as.character(c(1:6)),
+                             labels = activity_labels$value))
+
+## col bind all the dfs
+result <- bind_cols(c(subject_df, activities_df, w),
+                    .name_repair = "check_unique")
+
+# creates a second, independent tidy data set with the average of each variable 
+# for each activity and each subject
+
+# create a col list to get the mean of
+col_list <- names(result)[4:ncol(result)]
+
+Q5 <- result |>
+    group_by(activity, subject) |>
+    summarise(across(all_of(col_list), ~mean(., na.rm = TRUE))) 
+
