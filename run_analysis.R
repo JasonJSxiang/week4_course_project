@@ -1,5 +1,9 @@
-# load packages
+# Data prep ---------------------------------------------------------------
+
+## 1. load packages ####
 library(tidyverse)
+
+## 2. download and load files ####
 
 # check if raw file directory exists, if not, create one
 if(!file.exists("raw")) {
@@ -19,6 +23,8 @@ if(!file.exists("raw/zip_file.zip")) {
 if(!file.exists("raw/UCI HAR Dataset")) {
     unzip("raw/zip_file.zip", exdir = "raw")
 }
+
+## 3. file-reading function ####
 
 # Create function that loads data into R (this create a list for test and train
 # dataset)
@@ -77,12 +83,56 @@ read_files_function <- function(data) {
     }
 }
 
+## 4. load data ####
 # load the merged dataset for test
 if(!exists("test", where = .GlobalEnv)) {
-read_files_function("test")
+    read_files_function("test")
 }
 
 # load the merged dataset for global
 if(!exists("train", where = .GlobalEnv)) {
-read_files_function("train")
+    read_files_function("train")
 }
+
+
+
+# Data tidy ---------------------------------------------------------------
+
+# convert object to df
+test = as.data.frame(test)
+train = as.data.frame(train)
+
+# create a function to clean col names
+clean_names <- function(x) {
+    
+    if(x == "test") {
+        col_names <- names(test)
+        data <- test
+        
+        cleaned_names <- col_names |> 
+            str_remove("_test") |> 
+            str_remove("\\.txt")
+        
+        names(data) <- cleaned_names
+        test <<- data
+    }
+    
+    if(x == "train") {
+        col_names <- names(train)
+        data <- train
+        
+        cleaned_names <- col_names |> 
+            str_remove("_train") |> 
+            str_remove("\\.txt")
+        
+        names(data) <- cleaned_names
+        train <<- data
+    }
+    
+}
+
+# clean test's and train's col names
+clean_names("test")
+clean_names("train")
+
+
